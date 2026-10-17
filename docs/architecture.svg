@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="420" viewBox="0 0 980 420" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/>
+    </marker>
+    <style>
+      .box{fill:#ffffff;stroke:#1f2937;stroke-width:1.5;rx:8}
+      .acc{fill:#eaf1fb;stroke:#1f5fbf;stroke-width:1.5;rx:8}
+      .t{font-size:14px;fill:#111827;font-weight:600}
+      .s{font-size:12px;fill:#4b5563}
+      .l{font-size:12px;fill:#1f2937}
+      .e{stroke:#1f2937;stroke-width:1.5;fill:none;marker-end:url(#a)}
+      .r{stroke:#1f5fbf;stroke-width:2;fill:none;marker-end:url(#a);stroke-dasharray:6 4}
+    </style>
+  </defs>
+
+  <text x="20" y="30" font-size="18" font-weight="700" fill="#111827">AdPrompter: one step of the campaign loop</text>
+  <text x="20" y="50" class="s">Every block has a real implementation and a mock, so the loop runs offline and swaps in SDXL / CLIP / PPO without code changes.</text>
+
+  <!-- Agent -->
+  <rect x="20" y="150" width="150" height="90" class="acc"/>
+  <text x="95" y="180" text-anchor="middle" class="t">Agent</text>
+  <text x="95" y="200" text-anchor="middle" class="s">Thompson bandit</text>
+  <text x="95" y="216" text-anchor="middle" class="s">or PPO (SB3)</text>
+
+  <!-- Strategy -->
+  <rect x="215" y="150" width="150" height="90" class="box"/>
+  <text x="290" y="180" text-anchor="middle" class="t">Strategy</text>
+  <text x="290" y="200" text-anchor="middle" class="s">17 persuasion cues</text>
+  <text x="290" y="216" text-anchor="middle" class="s">(Scarcity, Humor, ...)</text>
+
+  <!-- Prompt -->
+  <rect x="410" y="150" width="150" height="90" class="box"/>
+  <text x="485" y="180" text-anchor="middle" class="t">Prompt builder</text>
+  <text x="485" y="200" text-anchor="middle" class="s">template, or fine-tuned</text>
+  <text x="485" y="216" text-anchor="middle" class="s">LLM prompter</text>
+
+  <!-- Images -->
+  <rect x="605" y="150" width="150" height="90" class="box"/>
+  <text x="680" y="180" text-anchor="middle" class="t">Image generator</text>
+  <text x="680" y="200" text-anchor="middle" class="s">SDXL (diffusers)</text>
+  <text x="680" y="216" text-anchor="middle" class="s">or mock renderer</text>
+
+  <!-- Scoring -->
+  <rect x="800" y="110" width="160" height="70" class="box"/>
+  <text x="880" y="135" text-anchor="middle" class="t">Rater</text>
+  <text x="880" y="155" text-anchor="middle" class="s">CLIP image-text fit,</text>
+  <text x="880" y="170" text-anchor="middle" class="s">human, or simulated</text>
+
+  <rect x="800" y="210" width="160" height="70" class="box"/>
+  <text x="880" y="235" text-anchor="middle" class="t">Bias auditor</text>
+  <text x="880" y="255" text-anchor="middle" class="s">CLIP zero-shot labels,</text>
+  <text x="880" y="270" text-anchor="middle" class="s">skew = TV distance</text>
+
+  <!-- forward edges -->
+  <path d="M170,195 L215,195" class="e"/>
+  <path d="M365,195 L410,195" class="e"/>
+  <path d="M560,195 L605,195" class="e"/>
+  <path d="M755,185 L800,150" class="e"/>
+  <path d="M755,205 L800,240" class="e"/>
+
+  <!-- reward -->
+  <rect x="380" y="320" width="220" height="60" class="acc"/>
+  <text x="490" y="344" text-anchor="middle" class="t">reward</text>
+  <text x="490" y="364" text-anchor="middle" class="s">rating - w*skew - repeat penalty</text>
+
+  <path d="M880,280 L880,350 L600,350" class="r"/>
+  <path d="M880,180 L975,180 L975,350 L600,350" class="r" opacity="0.001"/>
+  <path d="M380,350 L95,350 L95,240" class="r"/>
+  <text x="640" y="342" class="l">rating, skew</text>
+  <text x="110" y="300" class="l">posterior update</text>
+
+  <!-- observation -->
+  <text x="20" y="130" class="s">obs: strategies used this campaign + progress</text>
+</svg>

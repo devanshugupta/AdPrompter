@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adprompter"
+version = "1.0.0"
+description = "RL loop that learns which persuasion strategy to prompt an image model with, scored by automatic rating and a bias audit"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Devanshu Gupta", email = "devanshu0gupta@gmail.com" }]
+dependencies = ["numpy>=1.24", "pillow>=10", "matplotlib>=3.7"]
+
+[project.optional-dependencies]
+sdxl = ["torch", "diffusers", "transformers", "accelerate"]
+clip = ["torch", "transformers"]
+rl = ["gymnasium", "stable-baselines3"]
+dev = ["pytest"]
+
+[project.scripts]
+adprompter = "adprompter.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["adprompter*"]
