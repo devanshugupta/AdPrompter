@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 from typing import Protocol
 
+import numpy as np
 from PIL import Image, ImageDraw
 
 
@@ -25,14 +26,10 @@ class MockGenerator:
 
     def _draw(self, prompt: str, i: int) -> Image.Image:
         h = hashlib.sha256(f"{prompt}|{i}".encode()).digest()
-        top, bottom = tuple(h[0:3]), tuple(h[3:6])
-        img = Image.new("RGB", (self.size, self.size))
-        px = img.load()
-        for y in range(self.size):   # vertical gradient between two prompt-derived colours
-            t = y / (self.size - 1)
-            row = tuple(int(top[c] * (1 - t) + bottom[c] * t) for c in range(3))
-            for x in range(self.size):
-                px[x, y] = row
+        top, bottom = np.array(list(h[0:3]), dtype=np.float32), np.array(list(h[3:6]), dtype=np.float32)
+        ramp = np.linspace(0.0, 1.0, self.size, dtype=np.float32)[:, None, None]   # vertical gradient
+        rows = top * (1 - ramp) + bottom * ramp                                        # (size, 1, 3)
+        img = Image.fromarray(np.broadcast_to(rows, (self.size, self.size, 3)).astype(np.uint8))
         d = ImageDraw.Draw(img)
         caption = prompt.split(",")[0].replace("Advertisement photo for ", "")[:28]
         d.rectangle([(8, self.size - 40), (self.size - 8, self.size - 8)], fill=(0, 0, 0))
