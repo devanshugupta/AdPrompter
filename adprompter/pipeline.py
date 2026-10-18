@@ -24,8 +24,11 @@ class Record:
 def run_campaign(env: AdEnv, agent: Agent, episodes: int, out_dir: Path | None = None,
                  keep_images: bool = True) -> list[Record]:
     """Play `episodes` campaigns, updating the agent after every variant. Returns one
-    record per variant; images are saved under out_dir/variants when requested."""
+    record per variant. With out_dir, records.json is rewritten after every variant (a
+    crashed run keeps what it produced) and images land under out_dir/variants."""
     records: list[Record] = []
+    if out_dir:
+        out_dir.mkdir(parents=True, exist_ok=True)
     for ep in range(episodes):
         obs, _ = env.reset()
         done = False
@@ -36,17 +39,16 @@ def run_campaign(env: AdEnv, agent: Agent, episodes: int, out_dir: Path | None =
             agent.update(obs, action, reward)
             v: Variant = info["variant"]
             records.append(Record(ep, step, v.strategy, v.rating, v.bias_skew, v.reward, v.prompt))
-            if out_dir and keep_images:
-                _save_images(v, out_dir / "variants", ep, step)
+            if out_dir:
+                if keep_images:
+                    _save_images(v, out_dir / "variants", ep, step)
+                (out_dir / "records.json").write_text(json.dumps([asdict(r) for r in records], indent=1))
             obs, step = next_obs, step + 1
-    if out_dir:
-        out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "records.json").write_text(json.dumps([asdict(r) for r in records], indent=1))
     return records
 
 
 def _save_images(v: Variant, folder: Path, ep: int, step: int) -> None:
     folder.mkdir(parents=True, exist_ok=True)
     slug = v.strategy.lower().replace(" ", "-")
-    for i, img in enumerate(v.images):
-        img.save(folder / f"ep{ep:02d}_s{step}_{slug}_{i}.png")
+    for i, img in enumerate(v.images):   # zero-padded so lexical order is campaign order
+        img.save(folder / f"ep{ep:03d}_s{step:02d}_{slug}_{i}.png")

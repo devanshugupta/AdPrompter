@@ -37,26 +37,27 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--clip", action="store_true", help="rate and audit with CLIP")
     p.add_argument("--human", action="store_true", help="rate on the terminal")
     p.add_argument("--ppo", action="store_true", help="train a PPO policy (stable-baselines3)")
+    p.add_argument("--ppo-steps", type=int, default=2000, help="PPO training timesteps (each one is a render)")
     p.add_argument("--no-images", action="store_true", help="do not save variant images")
     a = p.parse_args(argv)
 
     product = Product(a.product, tuple(a.feature))
-    builder = LLMPromptExpander() if a.llm_prompts else TemplatePromptBuilder()
+    builder = LLMPromptExpander(seed=a.seed) if a.llm_prompts else TemplatePromptBuilder()
     generator = SDXLGenerator() if a.sdxl else MockGenerator()
     rater = HumanRater() if a.human else CLIPRater() if a.clip else SimulatedRater(a.seed)
     auditor = CLIPAuditor() if a.clip else MockAuditor()
     env = AdEnv(product, builder, generator, rater, auditor, n_images=a.images, horizon=a.horizon)
-    agent = PPOAgent(env, seed=a.seed) if a.ppo else ThompsonAgent(len(STRATEGIES), seed=a.seed)
+    agent = PPOAgent(env, a.ppo_steps, seed=a.seed) if a.ppo else ThompsonAgent(len(STRATEGIES), seed=a.seed)
 
     records = run_campaign(env, agent, a.episodes, a.out, keep_images=not a.no_images)
-    a.out.mkdir(parents=True, exist_ok=True)
     reward_curve(records, a.out / "reward_curve.png")
     strategy_mix(records, a.out / "strategy_mix.png")
     if not a.no_images:
         contact_sheet(a.out / "variants", a.out / "contact_sheet.png")
 
-    best = max(STRATEGIES, key=lambda s: sum(r.reward for r in records if r.strategy == s)
-               / max(1, sum(1 for r in records if r.strategy == s)))
+    played = {r.strategy for r in records}
+    best = max(played, key=lambda s: sum(r.reward for r in records if r.strategy == s)
+               / sum(1 for r in records if r.strategy == s))
     print(f"{len(records)} variants over {a.episodes} campaigns -> {a.out}")
     print(f"mean reward first half {sum(r.reward for r in records[:len(records)//2])/max(1,len(records)//2):.3f}"
           f" -> second half {sum(r.reward for r in records[len(records)//2:])/max(1,len(records)-len(records)//2):.3f}")

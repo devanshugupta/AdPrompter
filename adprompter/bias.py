@@ -2,13 +2,17 @@
 
 An ad that only ever depicts one group is a liability, so skew is a cost in the reward.
 `skew` is the total-variation distance between the observed attribute distribution and
-uniform: 0 when groups appear equally, 1 when a single group appears every time.
-`CLIPAuditor` labels each image zero-shot; `MockAuditor` derives a stable pseudo-label
-from the image bytes so the pipeline runs without a model."""
+uniform, scaled to [0, 1]. A handful of images cannot be exactly uniform, so a few draws
+from a perfectly fair generator still score above zero; `excess_skew` subtracts that
+chance level (the expected skew of n uniform draws), and the auditors report the worst
+excess over attributes. `CLIPAuditor` labels each image zero-shot; `MockAuditor` derives a
+stable pseudo-label from the prompt the mock renderer stamps on each image."""
 from __future__ import annotations
 
 import hashlib
 from collections import Counter
+from functools import lru_cache
+from itertools import product
 from typing import Protocol, Sequence
 
 ATTRIBUTES: dict[str, tuple[str, ...]] = {
@@ -20,24 +24,41 @@ ATTRIBUTES: dict[str, tuple[str, ...]] = {
 
 
 def skew(labels: Sequence[int], n_groups: int) -> float:
-    if not labels:
+    """0 when every group appears equally, 1 when a single group appears every time."""
+    if not labels or n_groups < 2:
         return 0.0
     counts = Counter(labels)
     uniform = 1.0 / n_groups
     return 0.5 * sum(abs(counts.get(g, 0) / len(labels) - uniform) for g in range(n_groups)) / (1 - uniform)
 
 
+@lru_cache(maxsize=None)
+def expected_skew(n: int, n_groups: int) -> float:
+    """Mean skew of n labels drawn uniformly from n_groups: the floor a fair generator hits."""
+    if n == 0 or n_groups < 2:
+        return 0.0
+    draws = list(product(range(n_groups), repeat=n))
+    return sum(skew(d, n_groups) for d in draws) / len(draws)
+
+
+def excess_skew(labels: Sequence[int], n_groups: int) -> float:
+    return max(0.0, skew(labels, n_groups) - expected_skew(len(labels), n_groups))
+
+
 class BiasAuditor(Protocol):
     def audit(self, images) -> float: ...
 
 
+def _worst(label_fn, images) -> float:
+    return max((excess_skew(label_fn(images, groups), len(groups)) for groups in ATTRIBUTES.values()), default=0.0)
+
+
 class MockAuditor:
     def audit(self, images) -> float:
-        worst = 0.0
-        for groups in ATTRIBUTES.values():
-            labels = [hashlib.sha256(im.tobytes()).digest()[0] % len(groups) for im in images]
-            worst = max(worst, skew(labels, len(groups)))
-        return worst
+        def labels(ims, groups):
+            return [hashlib.sha256(f"{im.info.get('prompt', '')}|{im.info.get('index', i)}|{groups[0]}".encode())
+                    .digest()[0] % len(groups) for i, im in enumerate(ims)]
+        return _worst(labels, images)
 
 
 class CLIPAuditor:
@@ -49,18 +70,8 @@ class CLIPAuditor:
         self._torch = torch
 
     def audit(self, images) -> float:
-        worst = 0.0
-        for groups in ATTRIBUTES.values():
-            inputs = self.proc(text=list(groups), images=images, return_tensors="pt", padding=True)
+        def labels(ims, groups):
+            inputs = self.proc(text=list(groups), images=ims, return_tensors="pt", padding=True)
             with self._torch.inference_mode():
-                labels = self.model(**inputs).logits_per_image.argmax(-1).tolist()
-            worst = max(worst, skew(labels, len(groups)))
-        return worst
-
-
-if __name__ == "__main__":
-    assert skew([0, 0, 0, 0], 2) == 1.0
-    assert skew([0, 1, 0, 1], 2) == 0.0
-    assert skew([0, 1, 2], 3) == 0.0
-    assert 0 < skew([0, 0, 1], 2) < 1
-    print("ok")
+                return self.model(**inputs).logits_per_image.argmax(-1).tolist()
+        return _worst(labels, images)

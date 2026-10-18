@@ -27,7 +27,7 @@ class LLMPromptExpander:
     transformers lazily so the package works without it."""
 
     def __init__(self, model_name: str = "jeong-jasonji/CSE574_prompter", max_new_tokens: int = 77,
-                 device: str | None = None):
+                 device: str | None = None, seed: int = 0):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -36,6 +36,7 @@ class LLMPromptExpander:
         self.model = AutoModelForCausalLM.from_pretrained(model_name).to(self.device).eval()
         self.max_new_tokens = max_new_tokens
         self._torch = torch
+        torch.manual_seed(seed)   # sampling below is stochastic; the seed makes a run reproducible
 
     def build(self, product: Product, strategy: str) -> str:
         seed = f"make a convincing ad for {product.name} with themes of {strategy.lower()}"

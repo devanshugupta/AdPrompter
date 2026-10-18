@@ -28,4 +28,5 @@ CUES: dict[str, str] = {
     "Humor": "a playful, absurd scene, cartoon exaggeration",
 }
 
-assert len(STRATEGIES) == len(set(STRATEGIES)) == len(CUES), "strategies must be unique and each have a cue"
+if len(STRATEGIES) != len(set(STRATEGIES)) or set(STRATEGIES) != set(CUES):
+    raise ValueError("strategies must be unique and each must have exactly one cue")

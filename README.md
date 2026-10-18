@@ -20,8 +20,8 @@ adprompter --product "Trail Runner X" --feature "carbon plate" --feature "280g" 
 
 | | first 10 campaigns | last 10 campaigns |
 |---|---|---|
-| mean reward per variant | 0.226 | **0.298** (+32%) |
-| first pick of a campaign = learned best strategy | - | **27 / 30** (90%) |
+| mean reward per variant | 0.402 | **0.468** (+16%) |
+| first pick of a campaign = reward-optimal strategy | - | **28 / 30** (93%) |
 
 ![reward curve](docs/results/reward_curve.png)
 
@@ -31,16 +31,17 @@ the bias penalty.
 ![strategy mix](docs/results/strategy_mix.png)
 
 **The agent did not pick the highest-rated strategy, and that is the point.** The simulated
-oracle rates *Anticipation* highest (0.78), but its variants are the most skewed (skew 1.0),
-so after the bias penalty it is worth 0.28. *Humor* rates 0.64 with skew 0.33 and is worth
-0.47, the best reward-adjusted arm, and that is what the agent learned to lead with.
+oracle rates *Anticipation* highest (0.78), but its variants carry demographic skew (excess
+skew 0.50), so after the bias penalty it is worth 0.53. *Scarcity* rates 0.66 with almost no
+skew (0.06) and is worth 0.63, the best reward-adjusted arm, and that is what the agent
+learned to lead with.
 
-| strategy | rating | bias skew | reward-adjusted |
+| strategy | rating | excess skew | reward-adjusted |
 |---|---|---|---|
-| Humor | 0.64 | 0.33 | **0.473** |
-| Scarcity | 0.66 | 0.50 | 0.406 |
-| Anticipation | 0.78 | 1.00 | 0.279 |
-| Curiosity | 0.50 | 0.50 | 0.247 |
+| Scarcity | 0.66 | 0.06 | **0.628** |
+| Anticipation | 0.78 | 0.50 | 0.529 |
+| Unity | 0.56 | 0.06 | 0.527 |
+| Humor | 0.64 | 0.50 | 0.389 |
 
 ![contact sheet](docs/results/contact_sheet.png)
 
@@ -90,8 +91,10 @@ offline runs (hidden per-strategy quality plus noise).
 
 **Bias audit** (`bias.py`). Zero-shot CLIP labels every image for gender, age and skin tone;
 `skew` is the total-variation distance from a uniform distribution (0 balanced, 1 one group
-only), and the worst attribute is what gets penalised. Images are generated, so the audit is
-on what *this* prompt produces, not on a dataset.
+only). A handful of images can never be exactly uniform, so `excess_skew` subtracts the
+chance level (the expected skew of n fair draws) and the worst attribute is what gets
+penalised. Images are generated, so the audit is on what *this* prompt produces, not on a
+dataset.
 
 Every block has a real implementation and a mock behind the same `Protocol`, so the whole loop,
 the tests, and the figures above run with numpy, pillow and matplotlib alone.
@@ -110,16 +113,14 @@ pip install -e ".[rl]"           # PPO policy
 adprompter --product "Trail Runner X" --feature "carbon plate" --episodes 20
 adprompter --product "Trail Runner X" --sdxl --clip --episodes 10 --images 4
 adprompter --product "Trail Runner X" --human --images 2 --episodes 3
-adprompter --product "Trail Runner X" --ppo
+adprompter --product "Trail Runner X" --ppo --ppo-steps 2000   # each PPO step is a render
 ```
 
 Each run writes `records.json`, `reward_curve.png`, `strategy_mix.png`, `contact_sheet.png`
 and the variant images to `--out` (default `runs/latest`).
 
 ```bash
-pytest tests -q          # loop runs offline, repeats and skew are penalised, agent learns the oracle
-python -m adprompter.agent   # bandit self-check
-python -m adprompter.bias    # skew metric self-check
+pytest tests -q   # offline loop, repeat/skew penalties, bandit posterior, learning, file layout, CLI
 ```
 
 ## Layout
@@ -131,8 +132,8 @@ adprompter/
   prompting.py    TemplatePromptBuilder, LLMPromptExpander
   imaging.py      MockGenerator, SDXLGenerator
   rating.py       SimulatedRater, HumanRater, CLIPRater
-  bias.py         skew(), MockAuditor, CLIPAuditor
-  env.py          AdEnv (gymnasium-shaped), GymAdapter
+  bias.py         skew(), excess_skew(), MockAuditor, CLIPAuditor
+  env.py          AdEnv, used_mask(), gym_adapter()
   agent.py        ThompsonAgent, PPOAgent
   pipeline.py     run_campaign -> records + saved variants
   report.py       reward curve, strategy mix, contact sheet

@@ -2,8 +2,8 @@
 
 `SDXLGenerator` is the real path (diffusers, GPU). `MockGenerator` draws a deterministic
 placeholder from the prompt text so the whole loop, the tests, and the README figures run
-on any laptop with no model download; its images carry the product name and strategy so a
-contact sheet is still readable."""
+on any laptop with no model download; its images carry a caption so a contact sheet is still
+readable, and the prompt in `Image.info` so a mock auditor can label them."""
 from __future__ import annotations
 
 import hashlib
@@ -30,8 +30,9 @@ class MockGenerator:
         ramp = np.linspace(0.0, 1.0, self.size, dtype=np.float32)[:, None, None]   # vertical gradient
         rows = top * (1 - ramp) + bottom * ramp                                        # (size, 1, 3)
         img = Image.fromarray(np.broadcast_to(rows, (self.size, self.size, 3)).astype(np.uint8))
+        img.info.update(prompt=prompt, index=i)   # lets a mock auditor label without reading pixels
         d = ImageDraw.Draw(img)
-        caption = prompt.split(",")[0].replace("Advertisement photo for ", "")[:28]
+        caption = prompt.split(",")[0][:28]
         d.rectangle([(8, self.size - 40), (self.size - 8, self.size - 8)], fill=(0, 0, 0))
         d.text((14, self.size - 34), caption, fill=(255, 255, 255))
         d.text((14, self.size - 20), f"variant {i + 1}", fill=(200, 200, 200))

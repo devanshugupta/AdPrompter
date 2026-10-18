@@ -13,6 +13,10 @@ from typing import Protocol
 from .strategies import STRATEGIES
 from .types import Variant
 
+# CLIP cosine similarity for an image and a caption that match sits roughly in this band;
+# it is mapped linearly onto [0, 1].
+CLIP_SIM_RANGE = (0.15, 0.40)
+
 
 class Rater(Protocol):
     def rate(self, variant: Variant) -> float: ...
@@ -54,5 +58,5 @@ class CLIPRater:
         with self._torch.inference_mode():
             out = self.model(**inputs)
         sims = out.logits_per_image.squeeze(-1) / self.model.logit_scale.exp()   # cosine similarity
-        # CLIP cosine similarity for a matching caption sits roughly in [0.15, 0.40]; map that to [0, 1].
-        return float(((sims.mean() - 0.15) / 0.25).clamp(0, 1))
+        lo, hi = CLIP_SIM_RANGE
+        return float(((sims.mean() - lo) / (hi - lo)).clamp(0, 1))
